@@ -24,6 +24,14 @@ class PlaybackService : MediaSessionService() {
         session = MediaSession.Builder(this, PlayerCore.get(this))
             .setSessionActivity(openApp)
             .build()
+
+        // Kritik: onGetSession() oturumu yalnizca *baglanan bir controller'a*
+        // verir. Arayuz ExoPlayer'i dogrudan kullandigi ve hicbir zaman
+        // MediaController baglamadigi icin oturum servise hic kaydolmuyordu;
+        // bu yuzden ne medya bildirimi postalaniyor ne de servis on plana
+        // geciyordu (yani kilit ekrani kontrolleri ve ekran kapaliyken
+        // calma calismiyordu). addSession() bunu acikca kaydeder.
+        session?.let { addSession(it) }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -37,6 +45,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        session?.let { removeSession(it) }
         session?.run {
             player.release()
             release()

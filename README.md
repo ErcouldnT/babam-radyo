@@ -62,6 +62,10 @@ Android 14 (API 34) emülatöründe uçtan uca doğrulandı:
 - İndirme diske gerçek mp3 yazıyor (9,4 MB test dosyası)
 - **Uçak modunda** indirilen şarkı sorunsuz çalıyor
 - Sekmeler arasında geçerken çalma kesilmiyor, çökme kaydı yok
+- Medya bildirimi postalanıyor (`category=transport`), servis ön planda
+  (`isForeground=true, types=mediaPlayback`)
+- **Kilit ekranında** oynatma kartı görünüyor: başlık, duraklat, önceki/sonraki,
+  çıkış cihazı seçici — ekran kilitliyken çalma sürüyor
 
 Babanın cihazı Android 10 (API 29); test edilen API 34 daha katı kurallara
 sahip (ön plan servis tipleri, bildirim izni), dolayısıyla API 29'da da
