@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/nav_radio" android:icon="@drawable/ic_radio" android:title="@string/tab_radio"/>
+    <item android:id="@+id/nav_search" android:icon="@drawable/ic_music" android:title="@string/tab_search"/>
+    <item android:id="@+id/nav_downloads" android:icon="@drawable/ic_folder" android:title="@string/tab_downloads"/>
+</menu>

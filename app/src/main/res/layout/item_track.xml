@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="72dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="?attr/selectableItemBackground"
+    android:paddingStart="16dp" android:paddingEnd="8dp"
+    android:paddingTop="10dp" android:paddingBottom="10dp">
+
+    <ImageView android:id="@+id/ivNowPlaying"
+        android:layout_width="26dp" android:layout_height="26dp"
+        android:layout_marginEnd="12dp"
+        android:src="@drawable/ic_play"
+        android:visibility="invisible"
+        android:contentDescription="@null"/>
+
+    <LinearLayout
+        android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:orientation="vertical">
+
+        <TextView android:id="@+id/tvTitle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="19sp" android:textColor="@color/text_primary"
+            android:maxLines="2" android:ellipsize="end"/>
+
+        <TextView android:id="@+id/tvSubtitle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textSize="14sp" android:textColor="@color/text_secondary"
+            android:maxLines="1" android:ellipsize="end"/>
+    </LinearLayout>
+
+    <TextView android:id="@+id/tvProgress"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textSize="13sp" android:textColor="@color/accent"
+        android:layout_marginEnd="4dp" android:visibility="gone"/>
+
+    <ImageButton android:id="@+id/btnAction"
+        android:layout_width="52dp" android:layout_height="52dp"
+        android:src="@drawable/ic_download"
+        android:scaleType="fitCenter" android:padding="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/download"/>
+</LinearLayout>

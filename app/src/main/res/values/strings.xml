@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">Babam Radyo</string>
+
+    <string name="tab_radio">Radyo</string>
+    <string name="tab_search">Müzik Ara</string>
+    <string name="tab_downloads">İndirilenler</string>
+
+    <string name="search_hint_radio">İstasyon ara (boş bırak: Türkiye listesi)</string>
+    <string name="search_hint_music">Şarkı, sanatçı veya albüm ara</string>
+    <string name="search">Ara</string>
+
+    <string name="loading">Yükleniyor…</string>
+    <string name="empty_radio">İstasyon bulunamadı.</string>
+    <string name="empty_music">Aramak istediğin şarkının adını yaz ve “Ara”ya bas.</string>
+    <string name="empty_downloads">Henüz indirilmiş şarkı yok.\n“Müzik Ara” sekmesinden beğendiğin şarkının yanındaki indirme düğmesine bas.</string>
+
+    <string name="download">İndir</string>
+    <string name="downloaded">İndirildi</string>
+    <string name="delete">Sil</string>
+    <string name="deleted">Silindi</string>
+    <string name="downloading">İndiriliyor</string>
+    <string name="download_done">İndirildi, artık internetsiz dinleyebilirsin</string>
+    <string name="download_failed">İndirilemedi</string>
+    <string name="live">CANLI</string>
+
+    <string name="fm_radio">FM Radyo</string>
+    <string name="fm_not_found">Bu telefonda dahili FM radyo uygulaması bulunamadı. FM radyo için telefonda FM anten çipi ve kulaklık girişine takılı kablolu kulaklık gerekir. Bunun yerine “Radyo” sekmesinden internet üzerinden yayın dinleyebilirsin.</string>
+    <string name="fm_headset_hint">FM radyo açılıyor. Anten görevi görmesi için kablolu kulaklığı takmayı unutma.</string>
+
+    <string name="no_tracks">Bu kayıtta çalınabilir mp3 bulunamadı.</string>
+    <string name="error_network">Bağlantı hatası. İnternetini kontrol edip tekrar dene.</string>
+    <string name="play_pause">Çal / Duraklat</string>
+    <string name="nothing_playing">Çalan bir şey yok</string>
+</resources>
