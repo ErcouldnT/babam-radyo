@@ -24,20 +24,32 @@ class TrackListActivity : AppCompatActivity() {
     private lateinit var playerBar: PlayerBar
 
     private var tracks: List<Track> = emptyList()
-    private val downloadedIds = HashSet<String>()
+
+    private val downloadListener: (String, Int) -> Unit = { id, pct ->
+        runOnUiThread {
+            if (pct >= 100) {
+                adapter.setProgress(id, 100)
+                adapter.setDownloaded(Downloads.list(this).map { it.id }.toSet())
+            } else {
+                adapter.setProgress(id, pct)
+            }
+        }
+    }
 
     private val adapter: TrackAdapter by lazy {
         TrackAdapter(
-            emptyList(), downloadedIds,
-            onPlay = { pos ->
-                if (pos in tracks.indices) {
-                    PlayerCore.play(this, tracks, pos)
+            onPlay = { t ->
+                val i = tracks.indexOfFirst { it.id == t.id }
+                if (i >= 0) {
+                    PlayerCore.play(this, tracks, i)
                     playerBar.render()
                     adapter.setPlaying(PlayerCore.currentId())
                 }
             },
             onDownload = { t -> startDownload(t) },
-            onDelete = { }
+            onCancelDownload = { t -> cancelDownload(t) },
+            onDelete = { },
+            onToggleFavorite = { }
         )
     }
 
@@ -62,17 +74,22 @@ class TrackListActivity : AppCompatActivity() {
 
         playerBar = PlayerBar(this, b.player) { adapter.setPlaying(PlayerCore.currentId()) }
 
-        refreshDownloadedIds()
+        adapter.setDownloaded(Downloads.list(this).map { it.id }.toSet())
         load(item)
     }
 
     override fun onStart() {
         super.onStart()
         playerBar.attach()
+        PlayerCore.onMessage = { msg -> runOnUiThread { toast(msg) } }
+        DownloadService.addListener(downloadListener)
+        DownloadService.activeProgress().forEach { (id, pct) -> adapter.setProgress(id, pct) }
     }
 
     override fun onStop() {
         playerBar.detach()
+        PlayerCore.onMessage = null
+        DownloadService.removeListener(downloadListener)
         super.onStop()
     }
 
@@ -88,7 +105,7 @@ class TrackListActivity : AppCompatActivity() {
                     b.tvEmpty.setText(R.string.no_tracks)
                 } else {
                     b.list.visibility = View.VISIBLE
-                    adapter.submit(tracks)
+                    adapter.submit(tracks.map { Row.Item(it) })
                     adapter.setPlaying(PlayerCore.currentId())
                 }
             } catch (e: Exception) {
@@ -99,31 +116,16 @@ class TrackListActivity : AppCompatActivity() {
         }
     }
 
-    private fun refreshDownloadedIds() {
-        downloadedIds.clear()
-        Downloads.list(this).forEach { downloadedIds.add(it.id) }
+    private fun startDownload(track: Track) {
+        adapter.startProgress(track.id)
+        DownloadService.enqueue(this, track)
     }
 
-    private fun startDownload(track: Track) {
-        adapter.setProgress(track.id, 0)
-        lifecycleScope.launch {
-            try {
-                Downloads.download(this@TrackListActivity, track) { pct ->
-                    runOnUiThread { adapter.setProgress(track.id, pct) }
-                }
-                adapter.markDownloaded(track.id)
-                Toast.makeText(
-                    this@TrackListActivity,
-                    R.string.download_done, Toast.LENGTH_LONG
-                ).show()
-            } catch (e: Exception) {
-                adapter.setProgress(track.id, 100)
-                Toast.makeText(
-                    this@TrackListActivity,
-                    "${getString(R.string.download_failed)}: ${e.message ?: ""}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
+    private fun cancelDownload(track: Track) {
+        DownloadService.cancel(this, track.id)
+        adapter.setProgress(track.id, 100)
+        toast(getString(R.string.download_cancelled))
     }
+
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 }

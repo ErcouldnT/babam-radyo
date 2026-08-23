@@ -31,4 +31,31 @@
     <string name="error_network">Bağlantı hatası. İnternetini kontrol edip tekrar dene.</string>
     <string name="play_pause">Çal / Duraklat</string>
     <string name="nothing_playing">Çalan bir şey yok</string>
+
+    <string name="favorite_add">Favorilere ekle</string>
+    <string name="favorite_remove">Favorilerden çıkar</string>
+    <string name="favorited">Favorilere eklendi</string>
+    <string name="unfavorited">Favorilerden çıkarıldı</string>
+    <string name="section_favorites">★ Favorilerim</string>
+    <string name="section_all_stations">Tüm istasyonlar</string>
+
+    <string name="reconnecting">Bağlantı koptu, yeniden bağlanılıyor…</string>
+    <string name="stream_failed">Yayına ulaşılamıyor: %1$s</string>
+    <string name="cancel_download">İndirmeyi iptal et</string>
+    <string name="download_cancelled">İndirme iptal edildi</string>
+
+    <string name="sleep_timer">Uyku zamanlayıcı</string>
+    <string name="sleep_timer_off">Kapalı</string>
+    <string name="sleep_timer_set">Müzik %1$s sonra duracak</string>
+    <string name="sleep_timer_cancelled">Uyku zamanlayıcı kapatıldı</string>
+    <string name="sleep_timer_running">Kalan: %1$s</string>
+    <string name="sleep_timer_finished">Uyku zamanlayıcı: müzik durduruldu</string>
+    <string name="previous">Önceki</string>
+    <string name="next">Sonraki</string>
+
+    <string name="channel_downloads">İndirmeler</string>
+    <string name="downloading_count">%1$d şarkı indiriliyor</string>
+    <string name="show_all_stations">Tüm istasyonları göster</string>
+    <string name="clear_search">Aramayı temizle</string>
+    <string name="search_results">Arama sonuçları</string>
 </resources>

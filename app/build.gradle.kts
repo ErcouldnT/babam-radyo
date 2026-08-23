@@ -23,8 +23,8 @@ android {
         applicationId = "dev.erkut.babamradyo"
         minSdk = 26          // Android 8.0 - babanın Oppo'su Android 10 (API 29)
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
         resourceConfigurations += listOf("tr", "en")
     }
 

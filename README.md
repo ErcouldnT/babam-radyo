@@ -11,10 +11,25 @@ bağımlılığı** olan Android müzik ve radyo uygulaması.
 
 | Sekme | İşlev |
 |---|---|
-| **Radyo** | Türkiye'nin en çok dinlenen internet radyolarını listeler, isimle arama yapılabilir. Dokun, çalsın. |
+| **Radyo** | Türkiye'nin en çok dinlenen internet radyolarını listeler, isimle arama yapılabilir. Favoriler en üstte ayrı bölümde durur. |
 | **Müzik Ara** | archive.org ses arşivinde şarkı/sanatçı/albüm araması. Sonuca dokununca içindeki parçalar listelenir. |
 | **İndirilenler** | İndirme düğmesine basılan parçalar buraya iner ve **internetsiz** dinlenir. |
 | **FM Radyo** | Üst çubuktaki düğme, telefonda kurulu dahili FM radyo uygulamasını açar. |
+| **Uyku zamanlayıcı** | 15–90 dakika sonra müziği durdurur. |
+
+### Oynatma
+
+- Arka planda çalar; bildirim ve kilit ekranından duraklat/önceki/sonraki
+- İstasyon logosu ve albüm kapağı listede, oynatıcıda ve bildirimde
+- **Yayın koparsa kendiliğinden geri bağlanır**: artan bekleme süreleriyle
+  yeniden dener, ayrıca ağ geri gelir gelmez bağlantı kurar
+- Son dinlenen istasyon/şarkı hatırlanır, uygulama açılışında hazır bekler
+- Ses odağı: gelen aramada duraklar, kulaklık çıkınca durur
+
+### İndirmeler
+
+İndirme ayrı bir ön plan servisinde yürür: bildirimde ilerleme çubuğu ve
+iptal düğmesi görünür, uygulamadan çıkılsa bile indirme sürer.
 
 ## FM radyo hakkında
 
@@ -66,6 +81,14 @@ Android 14 (API 34) emülatöründe uçtan uca doğrulandı:
   (`isForeground=true, types=mediaPlayback`)
 - **Kilit ekranında** oynatma kartı görünüyor: başlık, duraklat, önceki/sonraki,
   çıkış cihazı seçici — ekran kilitliyken çalma sürüyor
+- Ekran kilidi **kapalıyken** de sorunsuz: uygulama arka planda ve ekran kapalı
+  iken çalma kesintisiz sürdü, servis ön planda kaldı
+- Favoriler kalıcı, en üstte ayrı bölümde listeleniyor
+- **90 saniyelik ağ kesintisinden** sonra yayın kendiliğinden geri geldi
+- Son dinlenen istasyon, emülatör yeniden başlatıldıktan sonra bile geri yüklendi
+- Uyku zamanlayıcı kalan süreyi gösteriyor ve iptal edilebiliyor
+- İndirme bildirimi ilerleme çubuğu ve iptal düğmesiyle çalışıyor; 26 MB'lık
+  dosya indi, bitince servis kendini kapattı
 
 Babanın cihazı Android 10 (API 29); test edilen API 34 daha katı kurallara
 sahip (ön plan servis tipleri, bildirim izni), dolayısıyla API 29'da da

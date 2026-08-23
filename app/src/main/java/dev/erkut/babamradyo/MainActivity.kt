@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -27,21 +28,41 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playerBar: PlayerBar
 
     private var tab = Tab.RADIO
-    private var radioTracks: List<Track> = emptyList()
-    private var localTracks: List<Track> = emptyList()
 
-    private val downloadedIds = HashSet<String>()
+    /** Sunucudan gelen ham istasyon listesi (favori ayrimi yapilmamis). */
+    private var allStations: List<Track> = emptyList()
+
+    /** Ekranda gorunen sirayla parcalar; calma kuyrugu bundan kurulur. */
+    private var queue: List<Track> = emptyList()
+
+    /** Radyo sekmesinde aktif arama metni; bossa tam Turkiye listesi. */
+    private var radioQuery = ""
+
+    /** Indirme ilerlemesini servisten dinler. */
+    private val downloadListener: (String, Int) -> Unit = { id, pct ->
+        runOnUiThread {
+            if (pct >= 100) {
+                trackAdapter.setProgress(id, 100)
+                trackAdapter.setDownloaded(
+                    Downloads.list(this).map { it.id }.toSet()
+                )
+            } else {
+                trackAdapter.setProgress(id, pct)
+            }
+        }
+    }
 
     private val trackAdapter: TrackAdapter by lazy {
         TrackAdapter(
-            emptyList(), downloadedIds,
-            onPlay = { pos -> playCurrentList(pos) },
+            onPlay = { t -> playFromQueue(t) },
             onDownload = { t -> startDownload(t) },
-            onDelete = { t -> confirmDelete(t) }
+            onCancelDownload = { t -> cancelDownload(t) },
+            onDelete = { t -> confirmDelete(t) },
+            onToggleFavorite = { t -> toggleFavorite(t) }
         )
     }
     private val archiveAdapter: ArchiveAdapter by lazy {
-        ArchiveAdapter(emptyList()) { item -> openArchiveItem(item) }
+        ArchiveAdapter { item -> openArchiveItem(item) }
     }
 
     private val notifPermission =
@@ -67,31 +88,53 @@ class MainActivity : AppCompatActivity() {
         }
 
         b.btnSearch.setOnClickListener { doSearch() }
+        b.btnClear.setOnClickListener { clearSearch() }
+        b.etSearch.doAfterTextChanged { updateClearButton() }
+
+        // Zaten acik olan sekmeye tekrar dokunmak listeyi sifirlar:
+        // arama sonucundan tam listeye donmenin en dogal yolu.
+        b.bottomNav.setOnItemReselectedListener { item ->
+            if (item.itemId == R.id.nav_radio && radioQuery.isNotEmpty()) clearSearch()
+        }
         b.etSearch.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) { doSearch(); true } else false
         }
 
         b.btnFm.setOnClickListener { openFmRadio() }
+        b.btnSleep.setOnClickListener { showSleepTimerDialog() }
 
         askNotificationPermission()
-        refreshDownloadedIds()
+
+        // En son dinlenen parcayi oynaticiya yerlestir (kendiliginden calmaz).
+        PlayerCore.restoreLast(this)
+
         switchTab(Tab.RADIO)
     }
 
     override fun onStart() {
         super.onStart()
         playerBar.attach()
+        // Yayin koptugunda / geri geldiginde kullaniciya haber ver.
+        PlayerCore.onMessage = { msg -> runOnUiThread { toast(msg) } }
+        DownloadService.addListener(downloadListener)
+        // Ekran kapaliyken suren indirmelerin durumunu yakala.
+        DownloadService.activeProgress().forEach { (id, pct) ->
+            trackAdapter.setProgress(id, pct)
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        refreshDownloadedIds()
+        trackAdapter.setDownloaded(Downloads.list(this).map { it.id }.toSet())
+        trackAdapter.setFavorites(Prefs.favoriteIds(this))
         if (tab == Tab.DOWNLOADS) loadDownloads()
         refreshPlayingMarker()
     }
 
     override fun onStop() {
         playerBar.detach()
+        PlayerCore.onMessage = null
+        DownloadService.removeListener(downloadListener)
         super.onStop()
     }
 
@@ -100,13 +143,14 @@ class MainActivity : AppCompatActivity() {
     private fun switchTab(t: Tab) {
         tab = t
         hideKeyboard()
+        trackAdapter.setFavorites(Prefs.favoriteIds(this))
         when (t) {
             Tab.RADIO -> {
                 b.searchRow.visibility = View.VISIBLE
-                b.etSearch.setText("")
+                b.etSearch.setText(radioQuery)
                 b.etSearch.hint = getString(R.string.search_hint_radio)
                 b.list.adapter = trackAdapter
-                if (radioTracks.isEmpty()) loadRadio("") else showTracks(radioTracks)
+                if (allStations.isEmpty()) loadRadio(radioQuery) else showStations()
             }
             Tab.SEARCH -> {
                 b.searchRow.visibility = View.VISIBLE
@@ -130,11 +174,8 @@ class MainActivity : AppCompatActivity() {
         when (tab) {
             Tab.RADIO -> loadRadio(q)
             Tab.SEARCH -> {
-                if (q.isBlank()) {
-                    showEmpty(getString(R.string.empty_music))
-                    return
-                }
-                loadArchive(q)
+                if (q.isBlank()) showEmpty(getString(R.string.empty_music))
+                else loadArchive(q)
             }
             Tab.DOWNLOADS -> Unit
         }
@@ -143,17 +184,62 @@ class MainActivity : AppCompatActivity() {
     // ------------------------------------------------------------- yukleme
 
     private fun loadRadio(query: String) {
+        radioQuery = query
+        updateClearButton()
         showLoading()
         lifecycleScope.launch {
             try {
-                radioTracks = Api.radioStations(query)
-                if (tab == Tab.RADIO) {
-                    if (radioTracks.isEmpty()) showEmpty(getString(R.string.empty_radio))
-                    else showTracks(radioTracks)
-                }
+                allStations = Api.radioStations(query)
+                if (tab == Tab.RADIO) showStations()
             } catch (e: Exception) {
-                if (tab == Tab.RADIO) showEmpty(getString(R.string.error_network))
+                if (tab == Tab.RADIO) {
+                    // Internet yoksa bile favoriler gosterilebilsin.
+                    val favs = Prefs.favorites(this@MainActivity)
+                    if (favs.isEmpty()) showEmpty(getString(R.string.error_network))
+                    else {
+                        allStations = emptyList()
+                        showStations()
+                        toast(getString(R.string.error_network))
+                    }
+                }
             }
+        }
+    }
+
+    /** Favoriler ustte ayri bir bolumde, kalan istasyonlar altta. */
+    private fun showStations() {
+        val favs = Prefs.favorites(this).filter { it.kind == Track.Kind.RADIO }
+        val favIds = favs.map { it.id }.toSet()
+
+        val rows = ArrayList<Row>()
+        val flat = ArrayList<Track>()
+
+        if (radioQuery.isNotEmpty()) {
+            // Arama modu: favori bolumu gosterilmez, bunun yerine tam listeye
+            // donmek icin tiklanabilir bir satir en ustte durur.
+            rows.add(Row.Header("← " + getString(R.string.show_all_stations)) { clearSearch() })
+            rows.add(Row.Header(getString(R.string.search_results)))
+            allStations.forEach { rows.add(Row.Item(it)); flat.add(it) }
+        } else {
+            val rest = allStations.filter { it.id !in favIds }
+            if (favs.isNotEmpty()) {
+                rows.add(Row.Header(getString(R.string.section_favorites)))
+                favs.forEach { rows.add(Row.Item(it)); flat.add(it) }
+                if (rest.isNotEmpty()) {
+                    rows.add(Row.Header(getString(R.string.section_all_stations)))
+                }
+            }
+            rest.forEach { rows.add(Row.Item(it)); flat.add(it) }
+        }
+
+        queue = flat
+        if (rows.isEmpty()) {
+            showEmpty(getString(R.string.empty_radio))
+        } else {
+            trackAdapter.setFavorites(favIds)
+            trackAdapter.submit(rows)
+            refreshPlayingMarker()
+            showList()
         }
     }
 
@@ -173,23 +259,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadDownloads() {
-        localTracks = Downloads.list(this)
-        if (localTracks.isEmpty()) showEmpty(getString(R.string.empty_downloads))
-        else showTracks(localTracks)
+        val list = Downloads.list(this)
+        queue = list
+        trackAdapter.setDownloaded(list.map { it.id }.toSet())
+        if (list.isEmpty()) {
+            showEmpty(getString(R.string.empty_downloads))
+        } else {
+            trackAdapter.submit(list.map { Row.Item(it) })
+            refreshPlayingMarker()
+            showList()
+        }
     }
 
     // ------------------------------------------------------------- oynatma
 
-    private fun currentList(): List<Track> = when (tab) {
-        Tab.RADIO -> radioTracks
-        Tab.DOWNLOADS -> localTracks
-        Tab.SEARCH -> emptyList()
-    }
-
-    private fun playCurrentList(pos: Int) {
-        val list = currentList()
-        if (pos !in list.indices) return
-        PlayerCore.play(this, list, pos)
+    private fun playFromQueue(track: Track) {
+        val index = queue.indexOfFirst { it.id == track.id }
+        if (index < 0) return
+        PlayerCore.play(this, queue, index)
         playerBar.render()
         refreshPlayingMarker()
     }
@@ -208,27 +295,25 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    // ------------------------------------------------------------- indirme
+    // ------------------------------------------------------------ favoriler
 
-    private fun refreshDownloadedIds() {
-        downloadedIds.clear()
-        Downloads.list(this).forEach { downloadedIds.add(it.id) }
+    private fun toggleFavorite(track: Track) {
+        val nowFavorite = Prefs.toggleFavorite(this, track)
+        toast(getString(if (nowFavorite) R.string.favorited else R.string.unfavorited))
+        if (tab == Tab.RADIO) showStations()
     }
 
+    // ------------------------------------------------------------- indirme
+
     private fun startDownload(track: Track) {
-        trackAdapter.setProgress(track.id, 0)
-        lifecycleScope.launch {
-            try {
-                Downloads.download(this@MainActivity, track) { pct ->
-                    runOnUiThread { trackAdapter.setProgress(track.id, pct) }
-                }
-                trackAdapter.markDownloaded(track.id)
-                toast(getString(R.string.download_done))
-            } catch (e: Exception) {
-                trackAdapter.setProgress(track.id, 100)
-                toast("${getString(R.string.download_failed)}: ${e.message ?: ""}")
-            }
-        }
+        trackAdapter.startProgress(track.id)
+        DownloadService.enqueue(this, track)
+    }
+
+    private fun cancelDownload(track: Track) {
+        DownloadService.cancel(this, track.id)
+        trackAdapter.setProgress(track.id, 100)
+        toast(getString(R.string.download_cancelled))
     }
 
     private fun confirmDelete(track: Track) {
@@ -238,10 +323,44 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Vazgeç", null)
             .setPositiveButton(R.string.delete) { _, _ ->
                 Downloads.delete(this, track)
-                downloadedIds.remove(track.id)
                 toast(getString(R.string.deleted))
                 loadDownloads()
             }
+            .show()
+    }
+
+    // ------------------------------------------------------ uyku zamanlayici
+
+    private fun showSleepTimerDialog() {
+        val options = intArrayOf(15, 30, 45, 60, 90)
+        val labels = ArrayList<String>()
+        if (SleepTimer.isRunning) {
+            labels.add(getString(R.string.sleep_timer_off))
+        }
+        options.forEach { labels.add("$it dakika") }
+
+        val title = if (SleepTimer.isRunning) {
+            getString(R.string.sleep_timer_running, SleepTimer.remainingText())
+        } else {
+            getString(R.string.sleep_timer)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setItems(labels.toTypedArray()) { _, which ->
+                if (SleepTimer.isRunning && which == 0) {
+                    SleepTimer.cancel()
+                    toast(getString(R.string.sleep_timer_cancelled))
+                    return@setItems
+                }
+                val idx = if (SleepTimer.isRunning) which - 1 else which
+                val minutes = options[idx]
+                SleepTimer.start(this, minutes) {
+                    runOnUiThread { toast(getString(R.string.sleep_timer_finished)) }
+                }
+                toast(getString(R.string.sleep_timer_set, "$minutes dakika"))
+            }
+            .setNegativeButton("Vazgeç", null)
             .show()
     }
 
@@ -282,10 +401,25 @@ class MainActivity : AppCompatActivity() {
         b.tvEmpty.text = msg
     }
 
-    private fun showTracks(list: List<Track>) {
-        trackAdapter.submit(list)
-        refreshPlayingMarker()
-        showList()
+    /** Aramayi sifirlar: radyo sekmesinde tam Turkiye listesine doner. */
+    private fun clearSearch() {
+        b.etSearch.setText("")
+        hideKeyboard()
+        when (tab) {
+            Tab.RADIO -> loadRadio("")
+            Tab.SEARCH -> {
+                archiveAdapter.submit(emptyList())
+                showEmpty(getString(R.string.empty_music))
+                updateClearButton()
+            }
+            Tab.DOWNLOADS -> Unit
+        }
+    }
+
+    private fun updateClearButton() {
+        val hasText = b.etSearch.text?.isNotEmpty() == true
+        val searching = tab == Tab.RADIO && radioQuery.isNotEmpty()
+        b.btnClear.visibility = if (hasText || searching) View.VISIBLE else View.GONE
     }
 
     private fun toast(msg: String) =

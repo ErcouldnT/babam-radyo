@@ -13,7 +13,9 @@ data class Track(
     val durationSec: Int = 0,
     val sizeBytes: Long = 0L,
     /** Arsiv parcalarinda indirme dosya adini uretmek icin kullanilir. */
-    val fileName: String = ""
+    val fileName: String = "",
+    /** Istasyon logosu ya da albüm kapagi; yoksa bos. */
+    val artworkUrl: String = ""
 ) {
     enum class Kind { RADIO, ARCHIVE, LOCAL }
 
@@ -27,4 +29,7 @@ data class ArchiveItem(
     val title: String,
     val creator: String,
     val year: String
-)
+) {
+    /** Arsivin her kayit icin urettigi kapak gorseli. */
+    val artworkUrl: String get() = "https://archive.org/services/img/$identifier"
+}

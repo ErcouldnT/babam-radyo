@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ImageLoader, liste satiri geri donusturuldugunde yanlis gorseli
+         yerlestirmemek icin bu tag'i kullanir. -->
+    <item name="tag_image_url" type="id"/>
+</resources>

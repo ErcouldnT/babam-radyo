@@ -90,7 +90,8 @@ object Api {
                             title = name,
                             subtitle = bits.joinToString(" · ").ifBlank { "Canlı yayın" },
                             url = url,
-                            kind = Track.Kind.RADIO
+                            kind = Track.Kind.RADIO,
+                            artworkUrl = o.optString("favicon")
                         )
                     )
                 }
@@ -174,7 +175,8 @@ object Api {
                     kind = Track.Kind.ARCHIVE,
                     durationSec = f.optString("length").toSecondsOrZero(),
                     sizeBytes = f.optString("size").toLongOrNull() ?: 0L,
-                    fileName = name
+                    fileName = name,
+                    artworkUrl = item.artworkUrl
                 )
             )
         }

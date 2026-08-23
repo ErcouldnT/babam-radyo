@@ -2,7 +2,9 @@ package dev.erkut.babamradyo
 
 import android.content.Context
 import android.os.Environment
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -42,7 +44,8 @@ object Downloads {
                 kind = Track.Kind.LOCAL,
                 durationSec = e.optInt("duration"),
                 sizeBytes = f.length(),
-                fileName = f.name
+                fileName = f.name,
+                artworkUrl = e.optString("artwork")
             )
         }.reversed()
     }
@@ -79,6 +82,7 @@ object Downloads {
         track: Track,
         onProgress: (Int) -> Unit
     ): File = withContext(Dispatchers.IO) {
+        val scope = this
         val d = dir(ctx)
         val target = File(d, safeName(track))
         val part = File(d, target.name + ".part")
@@ -102,6 +106,10 @@ object Downloads {
                 part.outputStream().use { output ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
+                        // Engelleyici okuma kendiliginden kesilmez; her blokta
+                        // isin hala canli olup olmadigini kontrol ediyoruz ki
+                        // "iptal" dugmesi gercekten calissin.
+                        scope.ensureActive()
                         val n = input.read(buf)
                         if (n < 0) break
                         output.write(buf, 0, n)
@@ -125,6 +133,9 @@ object Downloads {
             addToIndex(ctx, track, target.name)
             onProgress(100)
             target
+        } catch (e: CancellationException) {
+            part.delete()
+            throw e
         } catch (e: Exception) {
             part.delete()
             throw e
@@ -174,6 +185,7 @@ object Downloads {
                 put("title", track.title)
                 put("subtitle", track.subtitle)
                 put("duration", track.durationSec)
+                put("artwork", track.artworkUrl)
                 put("file", fileName)
             }
         )

@@ -42,6 +42,8 @@ class PlayerBar(
         PlayerCore.get(context).addListener(listener)
 
         b.btnPlayPause.setOnClickListener { PlayerCore.togglePlayPause(context) }
+        b.btnPrev.setOnClickListener { PlayerCore.previous(context) }
+        b.btnNext.setOnClickListener { PlayerCore.next(context) }
 
         b.sbPosition.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {}
@@ -78,6 +80,18 @@ class PlayerBar(
         b.btnPlayPause.setImageResource(
             if (exo.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
         )
+
+        // Kuyrugun basinda/sonunda ilgili dugmeyi soluklastir.
+        b.btnPrev.isEnabled = true            // hep basa sarabilir
+        b.btnNext.isEnabled = exo.hasNextMediaItem()
+        b.btnNext.alpha = if (b.btnNext.isEnabled) 1f else 0.3f
+
+        ImageLoader.load(
+            b.ivPlayerArt,
+            item.mediaMetadata.artworkUri?.toString().orEmpty(),
+            R.drawable.ic_art_placeholder
+        )
+
         updateProgress()
     }
 
