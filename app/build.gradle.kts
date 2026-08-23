@@ -1,7 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+// Imzalama bilgileri depoya girmez. Kok dizindeki keystore.properties
+// (ve isaret ettigi .keystore dosyasi) .gitignore icindedir; bunlar yoksa
+// release derlemesi imzasiz uretilir.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val hasSigning = keystoreProps.getProperty("storeFile")
+    ?.let { project.file(it).exists() } == true
 
 android {
     namespace = "dev.erkut.babamradyo"
@@ -15,16 +27,6 @@ android {
         versionName = "1.0"
         resourceConfigurations += listOf("tr", "en")
     }
-
-    // Imzalama bilgileri depoya girmez. Kok dizindeki keystore.properties
-    // (ve isaret ettigi .keystore dosyasi) .gitignore icindedir; yoksa
-    // release derlemesi imzasiz uretilir.
-    val keystoreProps = java.util.Properties().apply {
-        val f = rootProject.file("keystore.properties")
-        if (f.exists()) f.inputStream().use { load(it) }
-    }
-    val hasSigning = keystoreProps.getProperty("storeFile")
-        ?.let { file(it).exists() } == true
 
     signingConfigs {
         if (hasSigning) {

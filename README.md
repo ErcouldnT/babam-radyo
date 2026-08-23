@@ -52,6 +52,21 @@ sınıflarını kullanır — üçüncü parti bir HTTP/JSON kütüphanesi yoktu
 Bu yüzden aynı kullanıcı deneyimi (ara → çal → indir → internetsiz dinle)
 yasal ve kalıcı olarak çalışan kaynaklarla kuruldu.
 
+## Test durumu
+
+Android 14 (API 34) emülatöründe uçtan uca doğrulandı:
+
+- Türk radyo listesi yükleniyor, seçilen istasyon gerçekten çalıyor
+  (`PlaybackState=PLAYING`, tamponlama sürüyor)
+- Arama gerçek sonuç veriyor, albüm içi parçalar süreleriyle listeleniyor
+- İndirme diske gerçek mp3 yazıyor (9,4 MB test dosyası)
+- **Uçak modunda** indirilen şarkı sorunsuz çalıyor
+- Sekmeler arasında geçerken çalma kesilmiyor, çökme kaydı yok
+
+Babanın cihazı Android 10 (API 29); test edilen API 34 daha katı kurallara
+sahip (ön plan servis tipleri, bildirim izni), dolayısıyla API 29'da da
+çalışması bekleniyor — ancak gerçek cihazda ayrıca denenmedi.
+
 ## Kurulum (telefona yükleme)
 
 1. `app-release.apk` dosyasını telefona kopyala.
@@ -69,8 +84,30 @@ JAVA_HOME=/path/to/jdk17 ./gradlew :app:assembleRelease
 # çıktı: app/build/outputs/apk/release/app-release.apk
 ```
 
-İmzalama anahtarı `app/babam-release.keystore` içinde depoda tutulur (kişisel
-kullanım için; Play Store'a yüklenmeyecek).
+### İmzalama
+
+İmzalama anahtarı ve parolaları **depoda tutulmaz**. Kök dizinde
+`keystore.properties` dosyası ve işaret ettiği `.keystore` dosyası varsa
+release derlemesi imzalanır; yoksa imzasız üretilir.
+
+```properties
+# keystore.properties  (git tarafından yok sayılır)
+storeFile=babam-release.keystore
+storePassword=...
+keyAlias=babam
+keyPassword=...
+```
+
+Yeni bir anahtar üretmek için:
+
+```bash
+keytool -genkeypair -keystore app/babam-release.keystore \
+  -alias babam -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Not: Telefondaki uygulamayı **güncelleyebilmek** için aynı anahtarla imzalamak
+gerekir. Anahtar kaybolursa, güncelleme yüklenmeden önce eski sürümü kaldırman
+gerekir. Anahtarı yedekle.
 
 ## İzinler
 
