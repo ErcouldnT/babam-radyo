@@ -12,7 +12,7 @@ bağımlılığı** olan Android müzik ve radyo uygulaması.
 | Sekme | İşlev |
 |---|---|
 | **Radyo** | Türkiye'nin en çok dinlenen internet radyolarını listeler, isimle arama yapılabilir. Favoriler en üstte ayrı bölümde durur. |
-| **Müzik Ara** | archive.org ses arşivinde şarkı/sanatçı/albüm araması. Sonuca dokununca içindeki parçalar listelenir. |
+| **Müzik Ara** | Önce **YouTube**, altında archive.org arşivi. YouTube sonuçları doğrudan çalınır ve mp3 olarak indirilir; arşiv sonuçlarına dokununca içindeki parçalar listelenir. |
 | **İndirilenler** | İndirme düğmesine basılan parçalar buraya iner ve **internetsiz** dinlenir. |
 | **FM Radyo** | Üst çubuktaki düğme, telefonda kurulu dahili FM radyo uygulamasını açar. |
 | **Uyku zamanlayıcı** | 15–90 dakika sonra müziği durdurur. |
@@ -38,6 +38,26 @@ bulunmalı ve **kablolu kulaklık** anten görevi görmelidir. Bu yüzden uygula
 cihazda kurulu dahili FM uygulamasını (Oppo/ColorOS'ta genelde
 `com.android.fmradio`) bulup açar. Çip yoksa uygulama bunu açıkça söyler ve
 kullanıcıyı internet radyosu sekmesine yönlendirir.
+
+## YouTube araması
+
+Arama sonuçlarının ilk bölümü YouTube'dan gelir. Bunun için kendi backend'imiz
+kullanılır: [babam-download-api](https://github.com/ErcouldnT/babam-download-api),
+Raspberry Pi 5 üzerinde çalışır. YouTube Data API veya herhangi bir anahtarlı
+servis kullanılmaz.
+
+Sunucu adresi ve gizli anahtar `api.properties` dosyasından derleme sırasında
+`BuildConfig`'e gömülür. Bu dosya **`.gitignore` içindedir** — depo herkese
+açık olduğu için anahtar depoya girmez. Kurulum için `api.properties.example`
+dosyasını kopyalayıp doldur.
+
+Anahtar APK içinde XOR ile karıştırılmış halde durur. Bu, `strings` ile bakan
+birini engeller; **kararlı bir tersine mühendisi engellemez** — APK'ya sahip
+olan anahtarı çıkarabilir. Asıl koruma, anahtarın sızması hâlinde sunucuda
+değiştirilebilmesidir.
+
+Backend kapalıysa YouTube bölümü sessizce atlanır: arşiv sonuçları, radyo ve
+indirilenler normal çalışmaya devam eder.
 
 ## Kaynaklar (hepsi açık ve anahtarsız)
 

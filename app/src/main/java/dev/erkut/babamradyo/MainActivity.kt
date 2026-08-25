@@ -18,6 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import dev.erkut.babamradyo.databinding.ActivityMainBinding
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -58,11 +59,9 @@ class MainActivity : AppCompatActivity() {
             onDownload = { t -> startDownload(t) },
             onCancelDownload = { t -> cancelDownload(t) },
             onDelete = { t -> confirmDelete(t) },
-            onToggleFavorite = { t -> toggleFavorite(t) }
+            onToggleFavorite = { t -> toggleFavorite(t) },
+            onOpenAlbum = { item -> openArchiveItem(item) }
         )
-    }
-    private val archiveAdapter: ArchiveAdapter by lazy {
-        ArchiveAdapter { item -> openArchiveItem(item) }
     }
 
     private val notifPermission =
@@ -156,8 +155,9 @@ class MainActivity : AppCompatActivity() {
                 b.searchRow.visibility = View.VISIBLE
                 b.etSearch.setText("")
                 b.etSearch.hint = getString(R.string.search_hint_music)
-                b.list.adapter = archiveAdapter
-                archiveAdapter.submit(emptyList())
+                b.list.adapter = trackAdapter
+                trackAdapter.submit(emptyList())
+                queue = emptyList()
                 showEmpty(getString(R.string.empty_music))
             }
             Tab.DOWNLOADS -> {
@@ -175,7 +175,7 @@ class MainActivity : AppCompatActivity() {
             Tab.RADIO -> loadRadio(q)
             Tab.SEARCH -> {
                 if (q.isBlank()) showEmpty(getString(R.string.empty_music))
-                else loadArchive(q)
+                else loadMusicSearch(q)
             }
             Tab.DOWNLOADS -> Unit
         }
@@ -243,17 +243,59 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadArchive(query: String) {
+    /**
+     * Muzik aramasi iki kaynaktan birden yapilir ve YouTube once gosterilir.
+     * Iki istek paralel gider; biri basarisiz olursa digeri yine listelenir,
+     * boylece backend kapaliyken de arsiv aramasi calisir.
+     */
+    private fun loadMusicSearch(query: String) {
         showLoading()
         lifecycleScope.launch {
-            try {
-                val results = Api.archiveSearch(query)
-                if (tab != Tab.SEARCH) return@launch
-                archiveAdapter.submit(results)
-                if (results.isEmpty()) showEmpty("“$query” için sonuç bulunamadı.")
-                else showList()
-            } catch (e: Exception) {
-                if (tab == Tab.SEARCH) showEmpty(getString(R.string.error_network))
+            val youtubeCall = async {
+                runCatching { Api.youtubeSearch(query) }
+            }
+            val archiveCall = async {
+                runCatching { Api.archiveSearch(query) }
+            }
+
+            val youtube = youtubeCall.await()
+            val archive = archiveCall.await()
+            if (tab != Tab.SEARCH) return@launch
+
+            val youtubeTracks = youtube.getOrDefault(emptyList())
+            val archiveItems = archive.getOrDefault(emptyList())
+
+            val rows = ArrayList<Row>()
+            val flat = ArrayList<Track>()
+
+            if (youtubeTracks.isNotEmpty()) {
+                rows.add(Row.Header(getString(R.string.section_youtube)))
+                youtubeTracks.forEach { rows.add(Row.Item(it)); flat.add(it) }
+            }
+            if (archiveItems.isNotEmpty()) {
+                rows.add(Row.Header(getString(R.string.section_archive)))
+                archiveItems.forEach { rows.add(Row.Album(it)) }
+            }
+
+            queue = flat
+
+            if (rows.isEmpty()) {
+                val bothFailed = youtube.isFailure && archive.isFailure
+                showEmpty(
+                    if (bothFailed) getString(R.string.error_network)
+                    else getString(R.string.no_results, query)
+                )
+                return@launch
+            }
+
+            trackAdapter.setDownloaded(Downloads.list(this@MainActivity).map { it.id }.toSet())
+            trackAdapter.submit(rows)
+            refreshPlayingMarker()
+            showList()
+
+            // Arsivden sonuc geldiyse ama YouTube dustuyse sessiz kalma.
+            if (youtube.isFailure && ApiSecrets.isConfigured) {
+                toast(getString(R.string.youtube_unavailable))
             }
         }
     }
@@ -312,7 +354,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun cancelDownload(track: Track) {
         DownloadService.cancel(this, track.id)
-        trackAdapter.setProgress(track.id, 100)
+        trackAdapter.clearProgress(track.id)
         toast(getString(R.string.download_cancelled))
     }
 
@@ -408,7 +450,8 @@ class MainActivity : AppCompatActivity() {
         when (tab) {
             Tab.RADIO -> loadRadio("")
             Tab.SEARCH -> {
-                archiveAdapter.submit(emptyList())
+                trackAdapter.submit(emptyList())
+                queue = emptyList()
                 showEmpty(getString(R.string.empty_music))
                 updateClearButton()
             }

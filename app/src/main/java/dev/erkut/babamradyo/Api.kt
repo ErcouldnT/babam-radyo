@@ -51,6 +51,27 @@ object Api {
 
     private fun enc(s: String): String = URLEncoder.encode(s, "UTF-8")
 
+    /** Kendi backend'imize giden, bearer tokenli istek. */
+    private fun httpGetAuthed(urlStr: String, timeoutMs: Int = 20000): String {
+        val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = timeoutMs
+            readTimeout = timeoutMs
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", UA)
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("Authorization", "Bearer ${ApiSecrets.token}")
+        }
+        try {
+            if (conn.responseCode !in 200..299) {
+                throw java.io.IOException("HTTP ${conn.responseCode}")
+            }
+            return conn.inputStream.bufferedReader().use(BufferedReader::readText)
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     // --------------------------------------------------------------- radyo
 
     /**
@@ -102,6 +123,53 @@ object Api {
             }
         }
         throw lastError ?: java.io.IOException("Radyo listesi alınamadı")
+    }
+
+    // ------------------------------------------------------------- youtube
+
+    /**
+     * Kendi backend'imiz uzerinden YouTube aramasi.
+     *
+     * Backend yapilandirilmamissa ya da erisilemezse cagiran taraf bunu
+     * bos liste / hata olarak ele alir; arsiv aramasi etkilenmez.
+     */
+    suspend fun youtubeSearch(query: String): List<Track> = withContext(Dispatchers.IO) {
+        if (!ApiSecrets.isConfigured) return@withContext emptyList()
+
+        val base = ApiSecrets.baseUrl
+        val body = httpGetAuthed(
+            "$base/api/search?q=${enc(query)}&limit=25",
+            25000
+        )
+        val arr = JSONObject(body).optJSONArray("results") ?: return@withContext emptyList()
+
+        val tokenParam = enc(ApiSecrets.token)
+        val out = ArrayList<Track>(arr.length())
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            val videoId = o.optString("id")
+            val pageUrl = o.optString("url")
+            if (videoId.isBlank() || pageUrl.isBlank()) continue
+
+            val encoded = enc(pageUrl)
+            out.add(
+                Track(
+                    id = "yt:$videoId",
+                    title = o.optString("title").ifBlank { videoId },
+                    subtitle = o.optString("uploader").ifBlank { "YouTube" },
+                    // Calma: kaynak akis - boyutu belli, ileri sarilabiliyor.
+                    url = "$base/api/audio?url=$encoded&format=source&token=$tokenParam",
+                    // Indirme: mp3 - kutuphanede dogru bicimde dursun.
+                    downloadUrl = "$base/api/audio?url=$encoded&token=$tokenParam",
+                    kind = Track.Kind.YOUTUBE,
+                    durationSec = o.optInt("durationSec"),
+                    // Kapak dogrudan YouTube'dan: token'i gorsel adresine
+                    // gomup meta veriye sizdirmaya gerek yok.
+                    artworkUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+                )
+            )
+        }
+        out
     }
 
     // -------------------------------------------------------------- arsiv

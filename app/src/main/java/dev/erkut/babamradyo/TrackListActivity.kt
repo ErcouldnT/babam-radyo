@@ -123,7 +123,7 @@ class TrackListActivity : AppCompatActivity() {
 
     private fun cancelDownload(track: Track) {
         DownloadService.cancel(this, track.id)
-        adapter.setProgress(track.id, 100)
+        adapter.clearProgress(track.id)
         toast(getString(R.string.download_cancelled))
     }
 

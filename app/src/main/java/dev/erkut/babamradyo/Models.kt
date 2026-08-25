@@ -15,12 +15,23 @@ data class Track(
     /** Arsiv parcalarinda indirme dosya adini uretmek icin kullanilir. */
     val fileName: String = "",
     /** Istasyon logosu ya da albüm kapagi; yoksa bos. */
-    val artworkUrl: String = ""
+    val artworkUrl: String = "",
+    /**
+     * Indirmede kullanilacak adres. YouTube'da calma ve indirme farkli
+     * adreslerden gelir: calmada ileri sarilabilen kaynak akis, indirmede
+     * mp3'e cevrilmis hali. Bos ise [url] kullanilir.
+     */
+    val downloadUrl: String = ""
 ) {
-    enum class Kind { RADIO, ARCHIVE, LOCAL }
+    enum class Kind { RADIO, ARCHIVE, LOCAL, YOUTUBE }
 
     val isLive: Boolean get() = kind == Kind.RADIO
-    val canDownload: Boolean get() = kind == Track.Kind.ARCHIVE
+
+    val canDownload: Boolean
+        get() = kind == Kind.ARCHIVE || kind == Kind.YOUTUBE
+
+    /** Indirme icin gercek adres. */
+    val effectiveDownloadUrl: String get() = downloadUrl.ifBlank { url }
 }
 
 /** archive.org arama sonucundaki bir kayit/albüm. */

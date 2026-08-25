@@ -15,6 +15,27 @@ val keystoreProps = Properties().apply {
 val hasSigning = keystoreProps.getProperty("storeFile")
     ?.let { project.file(it).exists() } == true
 
+// Backend adresi ve gizli anahtar da depoya girmez; api.properties
+// .gitignore icindedir. Dosya yoksa uygulama YouTube araması olmadan
+// derlenir - radyo, arşiv ve indirilenler etkilenmez.
+val apiProps = Properties().apply {
+    val f = rootProject.file("api.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+/**
+ * Anahtari APK icinde duz metin olarak birakmamak icin basit bir XOR.
+ * Bu, `strings` ile bakan birine karsi ise yarar; kararli bir tersine
+ * muhendise karsi yaramaz - APK'ya sahip olan anahtari cikarabilir.
+ * Gercek koruma anahtarin gerektiginde degistirilebilmesidir.
+ */
+val obfuscationKey = "BabamRadyo-2026"
+
+fun obfuscate(value: String): String =
+    value.toByteArray(Charsets.UTF_8)
+        .mapIndexed { i, b -> (b.toInt() xor obfuscationKey[i % obfuscationKey.length].code) }
+        .joinToString("") { "%02x".format(it and 0xFF) }
+
 android {
     namespace = "dev.erkut.babamradyo"
     compileSdk = 34
@@ -23,8 +44,20 @@ android {
         applicationId = "dev.erkut.babamradyo"
         minSdk = 26          // Android 8.0 - babanın Oppo'su Android 10 (API 29)
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
+
+        buildConfigField(
+            "String",
+            "API_BASE_URL",
+            "\"${apiProps.getProperty("API_BASE_URL", "").trimEnd('/')}\""
+        )
+        buildConfigField(
+            "String",
+            "API_TOKEN_OBFUSCATED",
+            "\"${obfuscate(apiProps.getProperty("API_TOKEN", ""))}\""
+        )
+        buildConfigField("String", "API_OBFUSCATION_KEY", "\"$obfuscationKey\"")
         resourceConfigurations += listOf("tr", "en")
     }
 
@@ -52,7 +85,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { viewBinding = true }
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
 }
 
 dependencies {

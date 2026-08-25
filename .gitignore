@@ -10,6 +10,9 @@
 local.properties
 app/build/
 /release/
+# API adresi ve gizli anahtar asla depoya girmez (depo herkese acik)
+api.properties
+
 # Imzalama anahtari ve parolalari asla depoya girmez
 *.keystore
 *.jks

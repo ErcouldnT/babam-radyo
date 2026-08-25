@@ -6,7 +6,7 @@
     <string name="tab_downloads">İndirilenler</string>
 
     <string name="search_hint_radio">İstasyon ara (boş bırak: Türkiye listesi)</string>
-    <string name="search_hint_music">Şarkı, sanatçı veya albüm ara</string>
+    <string name="search_hint_music">Şarkı veya sanatçı ara</string>
     <string name="search">Ara</string>
 
     <string name="loading">Yükleniyor…</string>
@@ -58,4 +58,9 @@
     <string name="show_all_stations">Tüm istasyonları göster</string>
     <string name="clear_search">Aramayı temizle</string>
     <string name="search_results">Arama sonuçları</string>
+
+    <string name="section_youtube">YouTube</string>
+    <string name="section_archive">Arşiv kayıtları</string>
+    <string name="youtube_unavailable">YouTube sunucusuna ulaşılamadı, sadece arşiv sonuçları gösteriliyor</string>
+    <string name="no_results">“%1$s” için sonuç bulunamadı.</string>
 </resources>

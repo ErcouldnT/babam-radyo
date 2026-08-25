@@ -1,0 +1,5 @@
+# `api.properties` olarak kopyalayip doldur. Bu dosya depoya girmez.
+# Bos birakilirsa uygulama YouTube araması olmadan derlenir;
+# radyo, arşiv ve indirilenler normal calisir.
+API_BASE_URL=https://download.erkut.dev
+API_TOKEN=

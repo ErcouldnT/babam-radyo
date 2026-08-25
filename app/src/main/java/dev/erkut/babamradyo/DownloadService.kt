@@ -59,7 +59,8 @@ class DownloadService : Service() {
                 putExtra("id", track.id)
                 putExtra("title", track.title)
                 putExtra("subtitle", track.subtitle)
-                putExtra("url", track.url)
+                // YouTube'da calma ve indirme adresleri farkli.
+                putExtra("url", track.effectiveDownloadUrl)
                 putExtra("duration", track.durationSec)
                 putExtra("artwork", track.artworkUrl)
                 putExtra("fileName", track.fileName)

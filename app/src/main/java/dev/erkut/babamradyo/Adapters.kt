@@ -13,6 +13,9 @@ sealed class Row {
     /** [onClick] doluysa baslik tiklanabilir bir eylem satiri olur. */
     data class Header(val title: String, val onClick: (() -> Unit)? = null) : Row()
     data class Item(val track: Track) : Row()
+
+    /** archive.org arama sonucu; dokununca icindeki parcalar acilir. */
+    data class Album(val item: ArchiveItem) : Row()
 }
 
 /** Parca listesi: radyo istasyonlari, arsiv parcalari ve indirilenler. */
@@ -21,12 +24,14 @@ class TrackAdapter(
     private val onDownload: (Track) -> Unit,
     private val onCancelDownload: (Track) -> Unit,
     private val onDelete: (Track) -> Unit,
-    private val onToggleFavorite: (Track) -> Unit
+    private val onToggleFavorite: (Track) -> Unit,
+    private val onOpenAlbum: (ArchiveItem) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     private companion object {
         const val TYPE_HEADER = 0
         const val TYPE_TRACK = 1
+        const val TYPE_ALBUM = 2
     }
 
     private var rows: List<Row> = emptyList()
@@ -37,6 +42,7 @@ class TrackAdapter(
 
     class HeaderVH(val b: ItemHeaderBinding) : RecyclerView.ViewHolder(b.root)
     class TrackVH(val b: ItemTrackBinding) : RecyclerView.ViewHolder(b.root)
+    class AlbumVH(val b: ItemArchiveBinding) : RecyclerView.ViewHolder(b.root)
 
     fun submit(newRows: List<Row>) {
         rows = newRows
@@ -59,8 +65,18 @@ class TrackAdapter(
         notifyDataSetChanged()
     }
 
+    /**
+     * [pct] -1 ise boyut bilinmiyor demektir (YouTube mp3 akisinda oluyor);
+     * bu "bitti" anlamina gelmez, satirda beklemeli gosterim kalir.
+     */
     fun setProgress(id: String, pct: Int) {
-        if (pct >= 100 || pct < 0) progress.remove(id) else progress[id] = pct
+        if (pct >= 100) progress.remove(id) else progress[id] = pct
+        notifyRow(id)
+    }
+
+    /** Iptal ya da hata sonrasi satiri normale dondurur. */
+    fun clearProgress(id: String) {
+        progress.remove(id)
         notifyRow(id)
     }
 
@@ -82,13 +98,19 @@ class TrackAdapter(
 
     override fun getItemCount() = rows.size
 
-    override fun getItemViewType(position: Int) =
-        if (rows[position] is Row.Header) TYPE_HEADER else TYPE_TRACK
+    override fun getItemViewType(position: Int) = when (rows[position]) {
+        is Row.Header -> TYPE_HEADER
+        is Row.Album -> TYPE_ALBUM
+        is Row.Item -> TYPE_TRACK
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inf = LayoutInflater.from(parent.context)
-        return if (viewType == TYPE_HEADER) HeaderVH(ItemHeaderBinding.inflate(inf, parent, false))
-        else TrackVH(ItemTrackBinding.inflate(inf, parent, false))
+        return when (viewType) {
+            TYPE_HEADER -> HeaderVH(ItemHeaderBinding.inflate(inf, parent, false))
+            TYPE_ALBUM -> AlbumVH(ItemArchiveBinding.inflate(inf, parent, false))
+            else -> TrackVH(ItemTrackBinding.inflate(inf, parent, false))
+        }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
@@ -102,6 +124,7 @@ class TrackAdapter(
                 )
             }
             is Row.Item -> bindTrack(holder as TrackVH, row.track)
+            is Row.Album -> bindAlbum(holder as AlbumVH, row.item)
         }
     }
 
@@ -130,7 +153,8 @@ class TrackAdapter(
             pct != null -> {
                 h.b.btnAction.visibility = View.GONE
                 h.b.tvProgress.visibility = View.VISIBLE
-                h.b.tvProgress.text = "%$pct"
+                // Boyut bilinmiyorsa yuzde gosterilemez.
+                h.b.tvProgress.text = if (pct < 0) "…" else "%$pct"
                 h.b.btnCancel.visibility = View.VISIBLE
                 h.b.btnCancel.setOnClickListener { onCancelDownload(t) }
             }
@@ -154,52 +178,31 @@ class TrackAdapter(
                 h.b.btnAction.contentDescription = ctx.getString(R.string.delete)
                 h.b.btnAction.setOnClickListener { onDelete(t) }
             }
-            // Arsiv parcasi, zaten inmis
-            t.id in downloadedIds -> {
+            // Indirilebilir parca, zaten inmis
+            t.canDownload && t.id in downloadedIds -> {
                 hideProgress(h)
                 h.b.btnAction.visibility = View.VISIBLE
                 h.b.btnAction.setImageResource(R.drawable.ic_check)
                 h.b.btnAction.contentDescription = ctx.getString(R.string.downloaded)
                 h.b.btnAction.setOnClickListener(null)
             }
-            // Arsiv parcasi, indirilebilir
-            else -> {
+            // Indirilebilir parca
+            t.canDownload -> {
                 hideProgress(h)
                 h.b.btnAction.visibility = View.VISIBLE
                 h.b.btnAction.setImageResource(R.drawable.ic_download)
                 h.b.btnAction.contentDescription = ctx.getString(R.string.download)
                 h.b.btnAction.setOnClickListener { onDownload(t) }
             }
+            // Geri kalan (orn. beklenmeyen tur): eylem dugmesi yok
+            else -> {
+                hideProgress(h)
+                h.b.btnAction.visibility = View.GONE
+            }
         }
     }
 
-    private fun hideProgress(h: TrackVH) {
-        h.b.tvProgress.visibility = View.GONE
-        h.b.btnCancel.visibility = View.GONE
-    }
-}
-
-/** archive.org arama sonuclari (albüm / kayit dizeyi). */
-class ArchiveAdapter(
-    private val onOpen: (ArchiveItem) -> Unit
-) : RecyclerView.Adapter<ArchiveAdapter.VH>() {
-
-    private var items: List<ArchiveItem> = emptyList()
-
-    class VH(val b: ItemArchiveBinding) : RecyclerView.ViewHolder(b.root)
-
-    fun submit(list: List<ArchiveItem>) {
-        items = list
-        notifyDataSetChanged()
-    }
-
-    override fun getItemCount() = items.size
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-        VH(ItemArchiveBinding.inflate(LayoutInflater.from(parent.context), parent, false))
-
-    override fun onBindViewHolder(h: VH, position: Int) {
-        val a = items[position]
+    private fun bindAlbum(h: AlbumVH, a: ArchiveItem) {
         h.b.tvTitle.text = a.title
         // Arsivde sanatci/yil alanlari cogu zaman bos; ikinci satir bos
         // gorunmesin diye kaynagi yaziyoruz.
@@ -207,6 +210,11 @@ class ArchiveAdapter(
             .filter { it.isNotBlank() }.joinToString(" · ")
             .ifBlank { "archive.org kaydı" }
         ImageLoader.load(h.b.ivArt, a.artworkUrl, R.drawable.ic_art_placeholder)
-        h.b.root.setOnClickListener { onOpen(a) }
+        h.b.root.setOnClickListener { onOpenAlbum(a) }
+    }
+
+    private fun hideProgress(h: TrackVH) {
+        h.b.tvProgress.visibility = View.GONE
+        h.b.btnCancel.visibility = View.GONE
     }
 }
